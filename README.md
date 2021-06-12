@@ -10,54 +10,112 @@ Usem como base o código disponível neste repositório.
 
 ## Descrição
 
-Esta avaliacão será mais "técnica", onde eu irei pedir para vocês realizarem tarefas que demandam conhecimento dos periféricos do uC e de RTOS. Vocês terão que usar os seguintes periféricos:
+Vamos criar um protótipo de um controlador de um patinete elétrico! 
 
-- PIO
-- TC
-- RTT
-- ADC
+![](https://http2.mlstatic.com/D_NQ_NP_950445-MLB40178216330_122019-O.jpg)
 
-E criar as seguintes tarefas:
+Para isso iremos usar o OLED1 da seguinte maneira:
 
-- task_tc
-- task_rtt
-- task_adc
-- task_main
-
-E os seguintes recursos do RTOS:
-
-- 
+- Botão 1: Aumenta potência do patinete
+- Botão 3: Diminui potência do patinete
+- OLED exibe:
+    - velocidade
+- LEDs exibem:
+    - potência atual
 
 ### Comecando
 
-#### LEDs
+Conexões:
 
-Configure os LEDs da placa OLED, todos devem comecar apagados.
+- Conecte o pino XXX no pino YYY
+- Conecte o OLED1 no EXT1
 
-#### Botões
+Código base:
 
-Configure os três botões da placa OLED para gerarem interrupção em borda de descida (quando aperta o botão), para cada botão configure uma funcão de callback e crie uma fila de inteiros (`xQueueBtn`) que a cada vez que ocorrer uma interrupcão nos botões coloqua na fila (`xQueueBtn`) um inteiro referente a qual botão foi pressionado: `1`, `2`, `3`.
+- Três botões do OLED configurados com IRQ e Callback
+- Três LEDs do OLED configurados como saída
+- OLED inicializado 
+- `task_main`: Onde será realizado todo o controle do patinete.
 
-A fila `xQueueBtn` deve ser lida na `task_process`.
+**TODO PROCESSAMENTO OU EXIBIÇÃO DE INFORMAÇÕES (LEDS/ OLED) DEVE SER REALIZADA NA TASK MAIN.**
 
-#### TC
+### Funcionamento
 
-Configure um TC para operar a 2Hz, a cada interrupção do TC você deve liberar um semáforo (`xSemaphoreTC`). 
+Você deve entregar um protótipo que calcula e exibe a velocidade do patinete no OLED e exibe a potência do motor nos três LEDs da placa.
 
-O semáforo (`xSemaphareTC`) deve ser lido pela `task_process` que incrementa um contador **local** a cada tick do TC (semáforo liberado). 
+#### Potência
 
-#### RTC
+A potência deve ser processada na `task_main` sendo utilizados semáforos ou fila para a comunicação entre o callback dos botões e a tarefa `main`. O controle da potência será feito pelos botões da placa OLED (`btn1` e `btn3`) e exibida nos LEDs da placa OLED. 
 
-Inicialize o RTC e configure interrupção de segundo, crie um semáforo `xSemaphoreRTC` que será liberado sempre que ocorrer a interrupcão de segundos.
+A principio podemos ter 4 níveis de potência:
 
-O semáforo (`xSemaphareRTC`) deve ser lido pela `task_process`. 
+- n0: Nenhum LED aceso
+- n1: Apenas um LED aceso 
+- n2: Dois LEDs acesos
+- n3: Todos LEDs acesos
 
-#### 
+**É PARA USAR SEMÁFOROS OU FILA, NÃO COMUNICAR CALLBACK VIA FLAGS**
 
-### C
+#### Velocidade
+
+![](roda.png)
+
+O calculo da velocidade do patinete será feita via a leitura do tempo entre um pulso e outro que representa o tempo de rotação de uma volta completa da roda (sensor magnético). O código fornecido de exemplo gera um pulso simulado no pino PD30 (EXT2) que simula o sinal do sensor.
+
+Iremos utilizar o TimerCounter para calcular o tempo entre um pulso e outro da roda. O TC será configurado para operar em 100Hz (10ms). No TC iremos incrementar uma variável global (`g_tc_counter`) que indicará quanto tempo durou um rotação.
+
+Você deve configurar algum outro pino do EXT2 (XXX) para leitura digital do sinal do sensor (com interrupção em borda de subida).
+
+![](pino.png)
+
+Toda vez que ocorrer um pulso no pino você deve:
+
+1. Ler o valor atual da var `g_tc_counter`
+1. Enviar o valor pela fila `xQueuedT`
+1. Zerar a variável `g_tc_counter`
+
+Na `task_main` você deve receber o dado (`dT`) da fila `xQueuedT` e calcular a velocidade do patinete. A velocidade (v) é decorrente da velocidade angular (w) de sua roda, sendo calculado por: `v = w*r*3.6 [km/h]`.
+
+O cálculo de `w` é realizado por:
+
+`w`: `w = 2*pi/T [rad/s]`
+
+Onde `T = dT * 0.01s`
+
+Vamos supor que a [roda do patinete](https://www.patinetesbrasil.com.br/products/roda-traseira-pneu-8-5-camara-de-ar-patinete-eletrico?variant=38077491806404&currency=BRL&utm_medium=product_sync&utm_source=google&utm_content=sag_organic&utm_campaign=sag_organic) tem `0.2m`
+
+``` 
+Exemplo: 
+
+1. dT = 45
+2. T = dT*0.01 = 0.42  [s]
+3. w = 2*pi/T  = 14.96 [rad/s]
+4. v = r*w*3.6 = 10.12 [km/h]
+```
+
+Resumo:
+
+- [ ] Configure o TC para operar a 100Hz; crie uma variável global: `g_tc_counter` e incremente a variável `g_tc_counter` a cada interrupção do TC.
+    - **Usar o TC0 canal 0.**
+- [ ] Crie uma fila de inteiros `xQueuedT`
+- [ ] Configure o pino YYY como entrada digital e com interrupção de boarda de subida (não esqueça da função de callback). A cada interrupção, coloque o valor da variável `g_tc_counter` na fila `xQueuedT` e então zere a variável xQueuedT.
+- [ ] Na `task_main` receba o dado na fila `xQueuedT` calcule e exiba a velocidade.
+
+> Exemplo: 10 km/h 
+
+### C (mínimo)
+
+Atenção! Você precisa do C para ganhar os pontos extras, não vale fazer os extras para compensar alguma coisa não realizado do C - mínimo!
 
 - [ ] **Segue a estrutura de firmware especificada (semáforos e filas)**
+- [ ] Exibe a velocidade no LCD
+- [ ] Exibe a potência nos LEDs
+- [ ] Possibilita ajustar potência
 
 ### extras 
 
-- (+0.5) Adicione novo um label para exibir o valor máximo dos dados que estão na tela (somente ADC).
+- (+1.0) Exibe distância percorrida (v*Tempo)
+- (+1.0) Usa RTT no lugar de TC para calular o dT
+- (+1.0) Possibilita desligar/ligar patinete segurando o btn2 por 10 segundos (limpa LCD);
+- (+0.5) Mais uma potência (n4): Todos os LEDs piscando
+- (+0.5) Exibe a potência no OLED (exemplo: `|****|`, `|**  |`)
