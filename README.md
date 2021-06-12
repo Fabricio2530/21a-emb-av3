@@ -12,9 +12,7 @@ Usem como base o código disponível neste repositório.
 
 Vamos criar um protótipo de um controlador de um patinete elétrico! 
 
-[[https://motork.com/wp-content/uploads/2019/09/urbanrun-patinete-electrico-rapido-resistente-y-ligero-autonomia-hasta-35-km-verde-4.jpg|width=100px]]
-
-[[https://a-static.mlcdn.com.br/618x463/patinete-eletrico-350w-dobravel-x7-bright-brazil-preto/smartecom/576629146/c53200cc715fe13fcb5011f445713ed9.jpg|width=100px]]
+![](https://http2.mlstatic.com/D_NQ_NP_950445-MLB40178216330_122019-O.jpg)
 
 Para isso iremos usar o OLED1 da seguinte maneira:
 
@@ -62,11 +60,13 @@ A principio podemos ter 4 níveis de potência:
 
 ![](roda.png)
 
-O calculo da velocidade do patinete será feita via a leitura do tempo entre um pulso e outro que representa o tempo de rotação de uma volta completa da roda (sensor magnético). O código fornecido de exemplo gera um pulso simulado no pino XXX que eumula o sensor.
+O calculo da velocidade do patinete será feita via a leitura do tempo entre um pulso e outro que representa o tempo de rotação de uma volta completa da roda (sensor magnético). O código fornecido de exemplo gera um pulso simulado no pino PD30 (EXT2) que simula o sinal do sensor.
 
 Iremos utilizar o TimerCounter para calcular o tempo entre um pulso e outro da roda. O TC será configurado para operar em 100Hz (10ms). No TC iremos incrementar uma variável global (`g_tc_counter`) que indicará quanto tempo durou um rotação.
 
-Você deve configurar o pino YYY para leitura digital do sinal do sensor (com interrupção em borda de subida).
+Você deve configurar algum outro pino do EXT2 (XXX) para leitura digital do sinal do sensor (com interrupção em borda de subida).
+
+![](pino.png)
 
 Toda vez que ocorrer um pulso no pino você deve:
 
@@ -74,15 +74,24 @@ Toda vez que ocorrer um pulso no pino você deve:
 1. Enviar o valor pela fila `xQueuedT`
 1. Zerar a variável `g_tc_counter`
 
-Na `task_main` você deve receber o dado (`dT`) da fila `xQueuedT` e calcular a velocidade do patinete. A velocidade (v) é decorrente da velocidade angular (w) de sua roda, sendo calculado por: `v = w*r [m/s]`.
+Na `task_main` você deve receber o dado (`dT`) da fila `xQueuedT` e calcular a velocidade do patinete. A velocidade (v) é decorrente da velocidade angular (w) de sua roda, sendo calculado por: `v = w*r*3.6 [km/h]`.
 
 O cálculo de `w` é realizado por:
 
-`w`: `w = 2*pi*f [rad/s]`
+`w`: `w = 2*pi/T [rad/s]`
 
-Onde `f = dT*100/10*`
+Onde `T = dT * 0.01s`
 
 Vamos supor que a [roda do patinete](https://www.patinetesbrasil.com.br/products/roda-traseira-pneu-8-5-camara-de-ar-patinete-eletrico?variant=38077491806404&currency=BRL&utm_medium=product_sync&utm_source=google&utm_content=sag_organic&utm_campaign=sag_organic) tem `0.2m`
+
+``` 
+Exemplo: 
+
+1. dT = 45
+2. T = dT*0.01 = 0.42  [s]
+3. w = 2*pi/T  = 14.96 [rad/s]
+4. v = r*w*3.6 = 10.12 [km/h]
+```
 
 Resumo:
 
@@ -91,6 +100,8 @@ Resumo:
 - [ ] Crie uma fila de inteiros `xQueuedT`
 - [ ] Configure o pino YYY como entrada digital e com interrupção de boarda de subida (não esqueça da função de callback). A cada interrupção, coloque o valor da variável `g_tc_counter` na fila `xQueuedT` e então zere a variável xQueuedT.
 - [ ] Na `task_main` receba o dado na fila `xQueuedT` calcule e exiba a velocidade.
+
+> Exemplo: 10 km/h 
 
 ### C (mínimo)
 
@@ -104,9 +115,7 @@ Atenção! Você precisa do C para ganhar os pontos extras, não vale fazer os e
 ### extras 
 
 - (+1.0) Exibe distância percorrida (v*Tempo)
-
 - (+1.0) Usa RTT no lugar de TC para calular o dT
-
-- (+1.0) Possibilita desligar/ligar patinete segurando o btn2 por 10 segundos (limpar LCD);
-
+- (+1.0) Possibilita desligar/ligar patinete segurando o btn2 por 10 segundos (limpa LCD);
 - (+0.5) Mais uma potência (n4): Todos os LEDs piscando
+- (+0.5) Exibe a potência no OLED (exemplo: `|****|`, `|**  |`)
