@@ -23,7 +23,7 @@ Para isso iremos usar o OLED1 da seguinte maneira:
 - LEDs exibem:
     - potência atual
 
-### Comecando
+### Começando
 
 Conexões:
 
@@ -60,7 +60,7 @@ A principio podemos ter 4 níveis de potência:
 
 ![](roda.png)
 
-O calculo da velocidade do patinete será feita via a leitura do tempo entre um pulso e outro que representa o tempo de rotação de uma volta completa da roda (sensor magnético). O código fornecido de exemplo gera um pulso simulado no pino PD30 (EXT2) que simula o sinal do sensor.
+O cálculo da velocidade do patinete será feita via a leitura do tempo entre um pulso e outro que representa o tempo de rotação de uma volta completa da roda (sensor magnético). O código fornecido de exemplo gera um pulso simulado no pino PD30 (EXT2) que simula o sinal do sensor.
 
 Iremos utilizar o TimerCounter para calcular o tempo entre um pulso e outro da roda. O TC será configurado para operar em 100Hz (10ms). No TC iremos incrementar uma variável global (`g_tc_counter`) que indicará quanto tempo durou um rotação.
 
@@ -98,7 +98,7 @@ Resumo:
 - [ ] Configure o TC para operar a 100Hz; crie uma variável global: `g_tc_counter` e incremente a variável `g_tc_counter` a cada interrupção do TC.
     - **Usar o TC0 canal 0.**
 - [ ] Crie uma fila de inteiros `xQueuedT`
-- [ ] Configure o pino YYY como entrada digital e com interrupção de boarda de subida (não esqueça da função de callback). A cada interrupção, coloque o valor da variável `g_tc_counter` na fila `xQueuedT` e então zere a variável xQueuedT.
+- [ ] Configure o pino YYY como entrada digital e com interrupção de borda de subida (não esqueça da função de callback). A cada interrupção, coloque o valor da variável `g_tc_counter` na fila `xQueuedT` e então zere a variável xQueuedT.
 - [ ] Na `task_main` receba o dado na fila `xQueuedT` calcule e exiba a velocidade.
 
 > Exemplo: 10 km/h 
