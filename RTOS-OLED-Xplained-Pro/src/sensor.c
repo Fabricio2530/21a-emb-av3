@@ -62,9 +62,32 @@ static void TC_init(Tc * TC, int ID_TC, int TC_CHANNEL, int freq){
 	tc_start(TC, TC_CHANNEL);
 }
 
+void patinete_power(int power) {
+  switch (power) {
+  case 0:
+    tc_stop(TC1, 0);
+    break;
+  case 1:
+    tc_start(TC1, 0);
+    TC_init(TC1, ID_TC3, 0, 5);
+    break;
+  case 2:
+    tc_start(TC1, 0);
+    TC_init(TC1, ID_TC3, 0, 3);
+    break;
+  case 3:
+    tc_start(TC1, 0);
+    TC_init(TC1, ID_TC3, 0, 1);
+    break;
+  case default:
+    break;
+  }
+
+}
+
 void init_sensor(void) {
   pmc_enable_periph_clk(SENSOR_ID);
   pio_configure(SENSOR_PIO, PIO_OUTPUT_0, SENSOR_MASK, PIO_DEFAULT);
   
-  TC_init(TC1, ID_TC3, 0, 3);
+  patinete_power(0);
 }

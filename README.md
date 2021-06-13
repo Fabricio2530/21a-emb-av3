@@ -27,7 +27,7 @@ Para isso iremos usar o OLED1 da seguinte maneira:
 
 Conexões:
 
-- Conecte o pino XXX no pino YYY
+- Conecte o pino do EXT2 PD30 no também do EXT2 PA21 
 - Conecte o OLED1 no EXT1
 
 Código base:
@@ -36,6 +36,7 @@ Código base:
 - Três LEDs do OLED configurados como saída
 - OLED inicializado 
 - `task_main`: Onde será realizado todo o controle do patinete.
+- `sensor.c`: Código que simula pulso da roda no pino PD30.
 
 **TODO PROCESSAMENTO OU EXIBIÇÃO DE INFORMAÇÕES (LEDS/ OLED) DEVE SER REALIZADA NA TASK MAIN.**
 
@@ -56,15 +57,22 @@ A principio podemos ter 4 níveis de potência:
 
 **É PARA USAR SEMÁFOROS OU FILA, NÃO COMUNICAR CALLBACK VIA FLAGS**
 
+Resumo:
+
+- [ ] Criar fila/ semáfaros para comunicação callback botões -> `task_main`
+- [ ] Enviar informação para a task main via o recurso criado anteriormente
+- [ ] Ler informação na `task_main` e implementar a lógica da potência
+    - Dica: Criar uma função para exibir nos LEDs a potência.
+
 #### Velocidade
 
 ![](roda.png)
 
 O calculo da velocidade do patinete será feita via a leitura do tempo entre um pulso e outro que representa o tempo de rotação de uma volta completa da roda (sensor magnético). O código fornecido de exemplo gera um pulso simulado no pino PD30 (EXT2) que simula o sinal do sensor.
 
-Iremos utilizar o TimerCounter para calcular o tempo entre um pulso e outro da roda. O TC será configurado para operar em 100Hz (10ms). No TC iremos incrementar uma variável global (`g_tc_counter`) que indicará quanto tempo durou um rotação.
+Iremos utilizar o TimerCounter para calcular o tempo entre um pulso e outro da roda. O TC deve ser configurado para operar em 100Hz (10ms). No TC iremos incrementar uma variável global (`g_tc_counter`) que indicará quanto tempo (pulsos) durou um rotação.
 
-Você deve configurar algum outro pino do EXT2 (XXX) para leitura digital do sinal do sensor (com interrupção em borda de subida).
+Você deve configurar o pino do EXT2 PA21 para operar como leitura digital do sinal do sensor (com interrupção em borda de subida).
 
 ![](pino.png)
 
@@ -82,12 +90,12 @@ O cálculo de `w` é realizado por:
 
 Onde `T = dT * 0.01s`
 
-Vamos supor que a [roda do patinete](https://www.patinetesbrasil.com.br/products/roda-traseira-pneu-8-5-camara-de-ar-patinete-eletrico?variant=38077491806404&currency=BRL&utm_medium=product_sync&utm_source=google&utm_content=sag_organic&utm_campaign=sag_organic) tem `0.2m`
+Vamos supor que a roda do patinete tem `0.2m` de raio.
 
 ``` 
 Exemplo: 
 
-1. dT = 45
+1. dT = 45             (pulsos)
 2. T = dT*0.01 = 0.42  [s]
 3. w = 2*pi/T  = 14.96 [rad/s]
 4. v = r*w*3.6 = 10.12 [km/h]
@@ -98,10 +106,8 @@ Resumo:
 - [ ] Configure o TC para operar a 100Hz; crie uma variável global: `g_tc_counter` e incremente a variável `g_tc_counter` a cada interrupção do TC.
     - **Usar o TC0 canal 0.**
 - [ ] Crie uma fila de inteiros `xQueuedT`
-- [ ] Configure o pino YYY como entrada digital e com interrupção de boarda de subida (não esqueça da função de callback). A cada interrupção, coloque o valor da variável `g_tc_counter` na fila `xQueuedT` e então zere a variável xQueuedT.
+- [ ] Configure o pino PA21 como entrada digital e com interrupção de borda de subida (não esqueça da função de callback). A cada interrupção, coloque o valor da variável `g_tc_counter` na fila `xQueuedT` e então zere a variável `g_tc_counter`.
 - [ ] Na `task_main` receba o dado na fila `xQueuedT` calcule e exiba a velocidade.
-
-> Exemplo: 10 km/h 
 
 ### C (mínimo)
 
@@ -114,7 +120,7 @@ Atenção! Você precisa do C para ganhar os pontos extras, não vale fazer os e
 
 ### extras 
 
-- (+1.0) Exibe distância percorrida (v*Tempo)
+- (+1.0) Exibe distância percorrida (acumular quantas voltas a roda já deu e)
 - (+1.0) Usa RTT no lugar de TC para calular o dT
 - (+1.0) Possibilita desligar/ligar patinete segurando o btn2 por 10 segundos (limpa LCD);
 - (+0.5) Mais uma potência (n4): Todos os LEDs piscando

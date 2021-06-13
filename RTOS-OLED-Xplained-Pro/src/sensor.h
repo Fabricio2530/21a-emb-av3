@@ -17,5 +17,6 @@
 
 void TC3_Handler(void);
 void init_sensor(void);
+void patinete_power(int power);
 
 #endif /* SENSOR_H_ */

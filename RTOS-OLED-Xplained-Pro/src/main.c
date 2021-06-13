@@ -87,7 +87,8 @@ static void task_main(void *pvParameters) {
   gfx_mono_draw_string("20 km/h", 20, 20, &sysfont);
   
   init_sensor();
-  
+  io_init();
+
 	for (;;)  {
     
 
