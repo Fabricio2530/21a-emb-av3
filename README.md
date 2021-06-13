@@ -23,7 +23,7 @@ Para isso iremos usar o OLED1 da seguinte maneira:
 - LEDs exibem:
     - potência atual
 
-### Comecando
+### Começando
 
 Conexões:
 
@@ -50,12 +50,14 @@ A potência deve ser processada na `task_main` sendo utilizados semáforos ou fi
 
 A principio podemos ter 4 níveis de potência:
 
-- n0: Nenhum LED aceso
-- n1: Apenas um LED aceso 
-- n2: Dois LEDs acesos
-- n3: Todos LEDs acesos
+- `0`: Nenhum LED aceso
+- `1`: Apenas um LED aceso 
+- `2`: Dois LEDs acesos
+- `3`: Todos LEDs acesos
 
 **É PARA USAR SEMÁFOROS OU FILA, NÃO COMUNICAR CALLBACK VIA FLAGS**
+
+Para ajustar a potência do patinete, você deve chamar a função `patinete_power()` passando como valor a potência atual do patinete (`0`, `1`, `2`, `3`).
 
 Resumo:
 
@@ -63,12 +65,13 @@ Resumo:
 - [ ] Enviar informação para a task main via o recurso criado anteriormente
 - [ ] Ler informação na `task_main` e implementar a lógica da potência
     - Dica: Criar uma função para exibir nos LEDs a potência.
+- [ ] Chamar a função `patinete_power( )` passando o valor da potência atual do patinete.
 
 #### Velocidade
 
 ![](roda.png)
 
-O calculo da velocidade do patinete será feita via a leitura do tempo entre um pulso e outro que representa o tempo de rotação de uma volta completa da roda (sensor magnético). O código fornecido de exemplo gera um pulso simulado no pino PD30 (EXT2) que simula o sinal do sensor.
+O cálculo da velocidade do patinete será feita via a leitura do tempo entre um pulso e outro que representa o tempo de rotação de uma volta completa da roda (sensor magnético). O código fornecido de exemplo gera um pulso simulado no pino PD30 (EXT2) que simula o sinal do sensor.
 
 Iremos utilizar o TimerCounter para calcular o tempo entre um pulso e outro da roda. O TC deve ser configurado para operar em 100Hz (10ms). No TC iremos incrementar uma variável global (`g_tc_counter`) que indicará quanto tempo (pulsos) durou um rotação.
 
@@ -125,3 +128,4 @@ Atenção! Você precisa do C para ganhar os pontos extras, não vale fazer os e
 - (+1.0) Possibilita desligar/ligar patinete segurando o btn2 por 10 segundos (limpa LCD);
 - (+0.5) Mais uma potência (n4): Todos os LEDs piscando
 - (+0.5) Exibe a potência no OLED (exemplo: `|****|`, `|**  |`)
+- (+0.5) Exibe velocidade 0 quando fica um tempo sem receber pulsos (dt)

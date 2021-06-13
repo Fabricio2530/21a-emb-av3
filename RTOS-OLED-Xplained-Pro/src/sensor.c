@@ -69,7 +69,7 @@ void patinete_power(int power) {
     break;
   case 1:
     tc_start(TC1, 0);
-    TC_init(TC1, ID_TC3, 0, 5);
+    TC_init(TC1, ID_TC3, 0, 1);
     break;
   case 2:
     tc_start(TC1, 0);
@@ -77,9 +77,9 @@ void patinete_power(int power) {
     break;
   case 3:
     tc_start(TC1, 0);
-    TC_init(TC1, ID_TC3, 0, 1);
+    TC_init(TC1, ID_TC3, 0, 5);
     break;
-  case default:
+  default:
     break;
   }
 
