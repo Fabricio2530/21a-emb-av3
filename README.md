@@ -65,7 +65,7 @@ Resumo:
 - [ ] Enviar informação para a task main via o recurso criado anteriormente
 - [ ] Ler informação na `task_main` e implementar a lógica da potência
     - Dica: Criar uma função para exibir nos LEDs a potência.
-- [ ] Chamar a função `patinete_power( )` passando o valor da potência atual do patinete.
+- [ ] Chamar a função `patinete_power( )` passando o valor da potência atual do patinete (`[0,1,2,3]`).
 
 #### Velocidade
 
@@ -129,3 +129,4 @@ Atenção! Você precisa do C para ganhar os pontos extras, não vale fazer os e
 - (+0.5) Mais uma potência (n4): Todos os LEDs piscando
 - (+0.5) Exibe a potência no OLED (exemplo: `|****|`, `|**  |`)
 - (+0.5) Exibe velocidade 0 quando fica um tempo sem receber pulsos (dt)
+- (+0.5) Calcula e exibe velocidade média.
