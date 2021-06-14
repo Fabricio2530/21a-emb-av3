@@ -114,6 +114,8 @@ Resumo:
 
 ### C (mínimo)
 
+> Ao terminar preencher o forms: https://forms.gle/3TmQXdC2aQXr8DSv7
+
 Atenção! Você precisa do C para ganhar os pontos extras, não vale fazer os extras para compensar alguma coisa não realizado do C - mínimo!
 
 - [ ] **Segue a estrutura de firmware especificada (semáforos e filas)**
