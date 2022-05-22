@@ -6,6 +6,15 @@
 #include "sysfont.h"
 #include "sensor.h"
 
+#define PI 3.142857
+#define RAIO 0.2
+
+/* Pino PA21 */
+#define PINO21_PIO PIOA
+#define PINO21_PIO_ID ID_PIOA
+#define PINO21_IDX 21
+#define PINO21_IDX_MASK (1 << PINO21_IDX)
+
 /* Botao da placa */
 #define LED_1_PIO PIOA
 #define LED_1_PIO_ID ID_PIOA
@@ -49,6 +58,16 @@ extern void xPortSysTickHandler(void);
 
 /** prototypes */
 void io_init(void);
+void pin_toggle(Pio *pio, uint32_t mask);
+void TC_init(Tc *TC, int ID_TC, int TC_CHANNEL, int freq);
+void leds(int pot);
+
+int g_tc_counter = 0;
+int potencia = 0;
+int dist = 0;
+
+QueueHandle_t xQueueBUT;
+QueueHandle_t xQueuedT;
 
 /************************************************************************/
 /* RTOS application funcs                                               */
@@ -71,11 +90,42 @@ extern void vApplicationMallocFailedHook(void) {
 /* handlers / callbacks                                                 */
 /************************************************************************/
 
-void but1_callback(void) { }
+void but1_callback(void) {
+	int value = 1;
+	
+	BaseType_t xHigherPriorityTaskWoken = pdTRUE;
+	xQueueSendFromISR(xQueueBUT, &value, &xHigherPriorityTaskWoken);
+}
 
-void but2_callback(void) { }
+void but2_callback(void) {
+	
+}
 
-void but3_callback(void) { }
+void but3_callback(void) {
+	int value = -1;
+	
+	BaseType_t xHigherPriorityTaskWoken = pdTRUE;
+	xQueueSendFromISR(xQueueBUT, &value, &xHigherPriorityTaskWoken);
+}
+	
+void pino21_callback(void) {
+	int dt = g_tc_counter;
+	g_tc_counter = 0;
+	BaseType_t xHigherPriorityTaskWoken = pdTRUE;
+	xQueueSendFromISR(xQueuedT, &dt, &xHigherPriorityTaskWoken);
+	
+}
+
+void TC1_Handler(void) {
+	/**
+	* Devemos indicar ao TC que a interrupção foi satisfeita.
+	* Isso é realizado pela leitura do status do periférico
+	**/
+	volatile uint32_t status = tc_get_status(TC0, 1);
+
+	/** Muda o estado do LED (pisca) **/
+	g_tc_counter++;
+}
 
 /************************************************************************/
 /* TASKS                                                                */
@@ -83,21 +133,100 @@ void but3_callback(void) { }
 
 static void task_main(void *pvParameters) {
 	gfx_mono_ssd1306_init();
-  gfx_mono_draw_string("Super patinete", 0, 0, &sysfont);
-  gfx_mono_draw_string("20 km/h", 20, 20, &sysfont);
-  
-  init_sensor();
-  io_init();
-
+ 
+	init_sensor();
+	io_init();
+	
+	int but;
+	int t; 
+	
 	for (;;)  {
-    
-
+		if (xQueueReceive(xQueueBUT, &(but), 0)) {
+			TC_init(TC0, ID_TC1, 1, 100);
+			tc_start(TC0, 1);
+			
+			potencia += but;
+			
+			if (potencia < 0) {
+				potencia = 0;
+			} else if (potencia > 3) {
+				potencia = 3;
+			}
+			
+			printf("O valor da potencia é de: %d\n", potencia);
+			patinete_power(potencia);
+			leds(potencia);
+		}
+		
+		if (xQueueReceive(xQueuedT, &(t), 0)) {
+			double T = t*0.01;
+			double w = 2*PI/T;
+			int v = RAIO*w*3.6;
+			dist += (v * T)/3.6;
+			
+			printf("A velocidade é de: %d\n", v);
+			printf("A distancia total é de: %d\n", dist);
+			
+			char vel[300];
+			char distancia[300];
+			sprintf(vel, "vel %d [km/h]", v);
+			gfx_mono_draw_string(vel, 0,0, &sysfont);
+			
+			sprintf(distancia, "dist %d [m]", dist);
+			gfx_mono_draw_string(distancia, 0,20, &sysfont);
+		} 
 	}
 }
-
 /************************************************************************/
 /* funcoes                                                              */
 /************************************************************************/
+
+void pin_toggle(Pio *pio, uint32_t mask) {
+	if(pio_get_output_data_status(pio, mask))
+	pio_clear(pio, mask);
+	else
+	pio_set(pio,mask);
+}
+
+void leds(int pot){
+	if (pot == 0) {
+		pio_set(LED_1_PIO, LED_1_IDX_MASK);
+		pio_set(LED_2_PIO, LED_2_IDX_MASK);
+		pio_set(LED_3_PIO, LED_3_IDX_MASK);
+	} else if (pot == 1) {
+		pio_clear(LED_1_PIO, LED_1_IDX_MASK);
+		pio_set(LED_2_PIO, LED_2_IDX_MASK);
+		pio_set(LED_3_PIO, LED_3_IDX_MASK);
+	} else if (pot == 2) {
+		pio_clear(LED_1_PIO, LED_1_IDX_MASK);
+		pio_clear(LED_2_PIO, LED_2_IDX_MASK);
+		pio_set(LED_3_PIO, LED_3_IDX_MASK);
+	} else {
+		pio_clear(LED_1_PIO, LED_1_IDX_MASK);
+		pio_clear(LED_2_PIO, LED_2_IDX_MASK);
+		pio_clear(LED_3_PIO, LED_3_IDX_MASK);
+	} 
+	
+}
+
+void TC_init(Tc * TC, int ID_TC, int TC_CHANNEL, int freq){
+	uint32_t ul_div;
+	uint32_t ul_tcclks;
+	uint32_t ul_sysclk = sysclk_get_cpu_hz();
+
+	/* Configura o PMC */
+	pmc_enable_periph_clk(ID_TC);
+
+	/** Configura o TC para operar em  freq hz e interrupçcão no RC compare */
+	tc_find_mck_divisor(freq, ul_sysclk, &ul_div, &ul_tcclks, ul_sysclk);
+	tc_init(TC, TC_CHANNEL, ul_tcclks | TC_CMR_CPCTRG);
+	tc_write_rc(TC, TC_CHANNEL, (ul_sysclk / ul_div) / freq);
+
+	/* Configura NVIC*/
+	NVIC_SetPriority(ID_TC, 4);
+	NVIC_EnableIRQ((IRQn_Type) ID_TC);
+	tc_enable_interrupt(TC, TC_CHANNEL, TC_IER_CPCS);
+}
 
 void io_init(void) {
   pmc_enable_periph_clk(LED_1_PIO_ID);
@@ -106,14 +235,18 @@ void io_init(void) {
   pmc_enable_periph_clk(BUT_1_PIO_ID);
   pmc_enable_periph_clk(BUT_2_PIO_ID);
   pmc_enable_periph_clk(BUT_3_PIO_ID);
+  pmc_enable_periph_clk(PINO21_PIO_ID);
+	
+  pio_set_output(LED_1_PIO, LED_1_IDX_MASK, 1, 0, 0);
+  pio_set_output(LED_2_PIO, LED_2_IDX_MASK, 1, 0, 0);
+  pio_set_output(LED_3_PIO, LED_3_IDX_MASK, 1, 0, 0);
 
-  pio_configure(LED_1_PIO, PIO_OUTPUT_0, LED_1_IDX_MASK, PIO_DEFAULT);
-  pio_configure(LED_2_PIO, PIO_OUTPUT_0, LED_2_IDX_MASK, PIO_DEFAULT);
-  pio_configure(LED_3_PIO, PIO_OUTPUT_0, LED_3_IDX_MASK, PIO_DEFAULT);
-
+  
   pio_configure(BUT_1_PIO, PIO_INPUT, BUT_1_IDX_MASK, PIO_PULLUP| PIO_DEBOUNCE);
   pio_configure(BUT_2_PIO, PIO_INPUT, BUT_2_IDX_MASK, PIO_PULLUP| PIO_DEBOUNCE);
   pio_configure(BUT_3_PIO, PIO_INPUT, BUT_3_IDX_MASK, PIO_PULLUP| PIO_DEBOUNCE);
+  
+  pio_set_input(PINO21_PIO,PINO21_IDX_MASK,PIO_DEFAULT);
 
   pio_handler_set(BUT_1_PIO, BUT_1_PIO_ID, BUT_1_IDX_MASK, PIO_IT_FALL_EDGE,
   but1_callback);
@@ -121,14 +254,19 @@ void io_init(void) {
   but3_callback);
   pio_handler_set(BUT_3_PIO, BUT_3_PIO_ID, BUT_3_IDX_MASK, PIO_IT_FALL_EDGE,
   but2_callback);
+  
+  pio_handler_set(PINO21_PIO, PINO21_PIO_ID, PINO21_IDX_MASK, PIO_IT_RISE_EDGE,
+  pino21_callback);
 
   pio_enable_interrupt(BUT_1_PIO, BUT_1_IDX_MASK);
   pio_enable_interrupt(BUT_2_PIO, BUT_2_IDX_MASK);
   pio_enable_interrupt(BUT_3_PIO, BUT_3_IDX_MASK);
+  pio_enable_interrupt(PINO21_PIO, PINO21_IDX_MASK);
 
   pio_get_interrupt_status(BUT_1_PIO);
   pio_get_interrupt_status(BUT_2_PIO);
   pio_get_interrupt_status(BUT_3_PIO);
+  pio_get_interrupt_status(PINO21_PIO);
 
   NVIC_EnableIRQ(BUT_1_PIO_ID);
   NVIC_SetPriority(BUT_1_PIO_ID, 4);
@@ -138,7 +276,12 @@ void io_init(void) {
 
   NVIC_EnableIRQ(BUT_3_PIO_ID);
   NVIC_SetPriority(BUT_3_PIO_ID, 4);
+  
+  NVIC_EnableIRQ(PINO21_PIO_ID);
+  NVIC_SetPriority(PINO21_PIO_ID, 4);
 }
+
+
 
 static void configure_console(void) {
 	const usart_serial_options_t uart_serial_options = {
@@ -173,6 +316,14 @@ int main(void) {
 	  printf("Failed to create main task\r\n");
 	}
 
+	xQueueBUT = xQueueCreate(100, sizeof(int));
+	if (xQueueBUT == NULL)
+	printf("falha em criar a queue xQueueBUT \n");
+	
+	xQueuedT = xQueueCreate(100, sizeof(int));
+	if (xQueuedT == NULL)
+	printf("falha em criar a queue xQueuedT \n");
+	
 	/* Start the scheduler. */
 	vTaskStartScheduler();
 
