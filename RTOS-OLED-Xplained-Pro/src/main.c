@@ -65,9 +65,11 @@ void leds(int pot);
 int g_tc_counter = 0;
 int potencia = 0;
 int dist = 0;
+int party_flag;
 
 QueueHandle_t xQueueBUT;
 QueueHandle_t xQueuedT;
+QueueHandle_t xQueueFesta;
 
 /************************************************************************/
 /* RTOS application funcs                                               */
@@ -138,7 +140,8 @@ static void task_main(void *pvParameters) {
 	io_init();
 	
 	int but;
-	int t; 
+	int t;
+	int flg;
 	
 	for (;;)  {
 		if (xQueueReceive(xQueueBUT, &(but), 0)) {
@@ -149,8 +152,8 @@ static void task_main(void *pvParameters) {
 			
 			if (potencia < 0) {
 				potencia = 0;
-			} else if (potencia > 3) {
-				potencia = 3;
+			} else if (potencia > 4) {
+				potencia = 4;
 			}
 			
 			printf("O valor da potencia é de: %d\n", potencia);
@@ -175,6 +178,20 @@ static void task_main(void *pvParameters) {
 			sprintf(distancia, "dist %d [m]", dist);
 			gfx_mono_draw_string(distancia, 0,20, &sysfont);
 		} 
+		
+		if (xQueueReceive(xQueueFesta, &(flg), 0)) {
+			if (flg) {
+				party_flag = 1;
+			} else {
+				party_flag = 0;
+			}
+		}
+		
+		if (party_flag) {
+			pin_toggle(LED_1_PIO, LED_1_IDX_MASK);
+			pin_toggle(LED_2_PIO, LED_2_IDX_MASK);
+			pin_toggle(LED_3_PIO, LED_3_IDX_MASK);
+		}
 	}
 }
 /************************************************************************/
@@ -189,24 +206,34 @@ void pin_toggle(Pio *pio, uint32_t mask) {
 }
 
 void leds(int pot){
+	int mode_flag;
+	
 	if (pot == 0) {
 		pio_set(LED_1_PIO, LED_1_IDX_MASK);
 		pio_set(LED_2_PIO, LED_2_IDX_MASK);
 		pio_set(LED_3_PIO, LED_3_IDX_MASK);
+		mode_flag = 0;
 	} else if (pot == 1) {
 		pio_clear(LED_1_PIO, LED_1_IDX_MASK);
 		pio_set(LED_2_PIO, LED_2_IDX_MASK);
 		pio_set(LED_3_PIO, LED_3_IDX_MASK);
+		mode_flag = 0;
 	} else if (pot == 2) {
 		pio_clear(LED_1_PIO, LED_1_IDX_MASK);
 		pio_clear(LED_2_PIO, LED_2_IDX_MASK);
 		pio_set(LED_3_PIO, LED_3_IDX_MASK);
-	} else {
+		mode_flag = 0;
+	} else if (pot == 3) {
 		pio_clear(LED_1_PIO, LED_1_IDX_MASK);
 		pio_clear(LED_2_PIO, LED_2_IDX_MASK);
 		pio_clear(LED_3_PIO, LED_3_IDX_MASK);
-	} 
+		mode_flag = 0;
+	} else {
+		mode_flag = 1;
+	}
 	
+	BaseType_t xHigherPriorityTaskWoken = pdTRUE;
+	xQueueSendFromISR(xQueueFesta, &mode_flag, &xHigherPriorityTaskWoken);
 }
 
 void TC_init(Tc * TC, int ID_TC, int TC_CHANNEL, int freq){
@@ -323,6 +350,10 @@ int main(void) {
 	xQueuedT = xQueueCreate(100, sizeof(int));
 	if (xQueuedT == NULL)
 	printf("falha em criar a queue xQueuedT \n");
+	
+	xQueueFesta = xQueueCreate(100, sizeof(int));
+	if (xQueueFesta == NULL)
+	printf("falha em criar a queue xQueueFesta \n");
 	
 	/* Start the scheduler. */
 	vTaskStartScheduler();
